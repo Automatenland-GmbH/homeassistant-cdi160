@@ -123,8 +123,8 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         await super().async_added_to_hass()
         # Fetch preset info immediately when entity is added
         await self._fetch_preset_info()
-        # Notify Home Assistant of the initial state
-        self.async_write_ha_state()
+        # Schedule a state update to ensure UI reflects the changes
+        self.async_schedule_update_ha_state(force_refresh=True)
 
     @property
     def device_info(self):
@@ -336,8 +336,8 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
     async def async_refresh_preset_info(self) -> None:
         """Public method to refresh preset information."""
         await self._fetch_preset_info()
-        # Notify Home Assistant of the state change
-        self.async_write_ha_state()
+        # Schedule a state update to ensure UI reflects the changes
+        self.async_schedule_update_ha_state(force_refresh=True)
 
     async def _fetch_preset_info(self) -> None:
         """Fetch preset information (names and logos) from device."""
