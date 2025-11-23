@@ -134,6 +134,15 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         return self._muted
 
     @property
+    def volume_level(self) -> float | None:
+        """Volume level of the media player (0..1).
+
+        The device does not report volume level, so we return None.
+        Volume control is available via volume_up/volume_down buttons.
+        """
+        return None
+
+    @property
     def media_title(self) -> str | None:
         """Return the title of current playing media."""
         return self._media_title
