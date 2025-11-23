@@ -387,12 +387,6 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
 
     def _rebuild_source_list(self) -> None:
         """Rebuild source list using API-fetched preset names."""
-        # Store the current source type and ID before rebuilding
-        current_source_type = None
-        current_source_id = None
-        if self._current_source and self._current_source in self._source_to_id:
-            current_source_type, current_source_id = self._source_to_id[self._current_source]
-
         # Clear existing lists
         self._source_list = []
         self._source_to_id = {}
@@ -408,20 +402,11 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             self._source_list.append(preset_name)
             self._source_to_id[preset_name] = ("preset", i)
 
-            # Update current source if this is the currently selected preset
-            if current_source_type == "preset" and current_source_id == i:
-                self._current_source = preset_name
-                _LOGGER.debug("Updated current source to: %s", preset_name)
-
         # Add favorites with custom names from options
         for i in range(1, MAX_FAVORITES + 1):
             custom_name = self._config_entry.options.get(f"favorite_{i}_name", f"Favorite {i}")
             self._source_list.append(custom_name)
             self._source_to_id[custom_name] = ("favorite", i)
-
-            # Update current source if this is the currently selected favorite
-            if current_source_type == "favorite" and current_source_id == i:
-                self._current_source = custom_name
 
         _LOGGER.debug("Rebuilt source list with %d sources", len(self._source_list))
 
