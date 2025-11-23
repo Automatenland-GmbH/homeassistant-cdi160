@@ -1,0 +1,7 @@
+{
+  "name": "DAP CDI160-BT Audio Player",
+  "render_readme": true,
+  "domains": ["media_player"],
+  "iot_class": "Local Polling",
+  "homeassistant": "2023.1.0"
+}

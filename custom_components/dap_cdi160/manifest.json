@@ -1,0 +1,9 @@
+{
+  "domain": "dap_cdi160",
+  "name": "DAP CDI160-BT Audio Player",
+  "documentation": "https://github.com/Automatenland-GmbH/homeassistant-cdi160",
+  "codeowners": ["@Automatenland-GmbH"],
+  "requirements": [],
+  "version": "1.0.0",
+  "iot_class": "local_polling"
+}

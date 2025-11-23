@@ -1,0 +1,247 @@
+"""Support for DAP CDI160-BT Audio Player."""
+import logging
+from typing import Any
+
+import aiohttp
+
+from homeassistant.components.media_player import (
+    MediaPlayerEntity,
+    MediaPlayerEntityFeature,
+    MediaPlayerState,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import (
+    DEFAULT_NAME,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    ENDPOINT_GET_PLAYING,
+    ENDPOINT_PRESET,
+    ENDPOINT_VOLUME,
+    VOLUME_DOWN,
+    VOLUME_MUTE,
+    VOLUME_UP,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the DAP CDI160 media player from a config entry."""
+    host = config_entry.data[CONF_HOST]
+    name = config_entry.data.get(CONF_NAME, DEFAULT_NAME)
+
+    # Ensure host starts with http:// or https://
+    if not host.startswith("http://") and not host.startswith("https://"):
+        host = f"http://{host}"
+
+    session = async_get_clientsession(hass)
+    player = DapCdi160MediaPlayer(hass, session, host, name)
+    async_add_entities([player], True)
+
+
+class DapCdi160MediaPlayer(MediaPlayerEntity):
+    """Representation of a DAP CDI160 Audio Player."""
+
+    _attr_has_entity_name = True
+    _attr_name = None
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        session: aiohttp.ClientSession,
+        host: str,
+        name: str,
+    ) -> None:
+        """Initialize the DAP CDI160 device."""
+        self.hass = hass
+        self._session = session
+        self._host = host
+        self._attr_unique_id = f"dap_cdi160_{host}"
+        self._device_name = name
+
+        # State attributes
+        self._state = MediaPlayerState.IDLE
+        self._muted = False
+        self._media_title = None
+        self._media_artist = None
+        self._in_favorite = False
+
+        # Supported features
+        self._attr_supported_features = (
+            MediaPlayerEntityFeature.VOLUME_STEP
+            | MediaPlayerEntityFeature.VOLUME_MUTE
+            | MediaPlayerEntityFeature.SELECT_SOURCE
+        )
+
+        # Presets as sources
+        self._source_list = ["Preset 1", "Preset 2", "Preset 3", "Preset 4"]
+        self._current_source = None
+
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+        return {
+            "identifiers": {(DOMAIN, self._host)},
+            "name": self._device_name,
+            "manufacturer": "DAP",
+            "model": "CDI160-BT",
+        }
+
+    @property
+    def state(self) -> MediaPlayerState:
+        """Return the state of the device."""
+        return self._state
+
+    @property
+    def is_volume_muted(self) -> bool:
+        """Return boolean if volume is currently muted."""
+        return self._muted
+
+    @property
+    def media_title(self) -> str | None:
+        """Return the title of current playing media."""
+        return self._media_title
+
+    @property
+    def media_artist(self) -> str | None:
+        """Return the artist of current playing media."""
+        return self._media_artist
+
+    @property
+    def source_list(self) -> list[str]:
+        """Return the list of available input sources."""
+        return self._source_list
+
+    @property
+    def source(self) -> str | None:
+        """Return the current input source."""
+        return self._current_source
+
+    async def async_update(self) -> None:
+        """Fetch new state data for the player."""
+        url = f"{self._host}{ENDPOINT_GET_PLAYING}"
+        try:
+            async with self._session.get(
+                url, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    await self._process_playing_data(data)
+                else:
+                    _LOGGER.error(
+                        "Failed to fetch status from %s: HTTP %s", url, response.status
+                    )
+                    self._state = MediaPlayerState.OFF
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Error connecting to %s: %s", url, err)
+            self._state = MediaPlayerState.OFF
+        except Exception as err:
+            _LOGGER.exception("Unexpected error updating DAP CDI160: %s", err)
+            self._state = MediaPlayerState.OFF
+
+    async def _process_playing_data(self, data: dict[str, Any]) -> None:
+        """Process the playing data from the API."""
+        mply_sta = data.get("mPlySta", [])
+        self._muted = data.get("bMuted", False)
+        self._in_favorite = data.get("bInFav", False)
+
+        # Parse mPlySta array
+        # Index 0: Title/Station name
+        # Index 1: Artist/Additional info
+        # Index 2: Play state description
+        if len(mply_sta) > 0:
+            self._media_title = mply_sta[0] if mply_sta[0] else None
+
+        if len(mply_sta) > 1:
+            self._media_artist = mply_sta[1] if mply_sta[1] else None
+
+        if len(mply_sta) > 2:
+            play_state_str = mply_sta[2].lower()
+            if "playing" in play_state_str:
+                self._state = MediaPlayerState.PLAYING
+            elif "paused" in play_state_str:
+                self._state = MediaPlayerState.PAUSED
+            elif "stopped" in play_state_str:
+                self._state = MediaPlayerState.IDLE
+            else:
+                self._state = MediaPlayerState.ON
+        else:
+            self._state = MediaPlayerState.ON
+
+    async def async_volume_up(self) -> None:
+        """Volume up the media player."""
+        await self._send_volume_command(VOLUME_UP)
+
+    async def async_volume_down(self) -> None:
+        """Volume down the media player."""
+        await self._send_volume_command(VOLUME_DOWN)
+
+    async def async_mute_volume(self, mute: bool) -> None:
+        """Mute or unmute the media player."""
+        if mute:
+            await self._send_volume_command(VOLUME_MUTE)
+        else:
+            # Unmute by sending volume up command
+            await self._send_volume_command(VOLUME_UP)
+
+    async def _send_volume_command(self, volume_value: int) -> None:
+        """Send volume control command to the device."""
+        url = f"{self._host}{ENDPOINT_VOLUME}"
+        data = {"vl": volume_value}
+
+        try:
+            async with self._session.post(
+                url, data=data, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status != 200:
+                    _LOGGER.error(
+                        "Failed to send volume command to %s: HTTP %s",
+                        url,
+                        response.status,
+                    )
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Error sending volume command to %s: %s", url, err)
+        except Exception as err:
+            _LOGGER.exception("Unexpected error sending volume command: %s", err)
+
+    async def async_select_source(self, source: str) -> None:
+        """Select input source (preset)."""
+        try:
+            # Map source name to preset ID (0-3)
+            preset_map = {
+                "Preset 1": 0,
+                "Preset 2": 1,
+                "Preset 3": 2,
+                "Preset 4": 3,
+            }
+
+            if source not in preset_map:
+                _LOGGER.error("Invalid source: %s", source)
+                return
+
+            preset_id = preset_map[source]
+            url = f"{self._host}{ENDPOINT_PRESET}"
+            data = {"do": "lip", "pid": preset_id}
+
+            async with self._session.post(
+                url, data=data, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 200:
+                    self._current_source = source
+                else:
+                    _LOGGER.error(
+                        "Failed to select preset %s: HTTP %s", source, response.status
+                    )
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Error selecting preset %s: %s", source, err)
+        except Exception as err:
+            _LOGGER.exception("Unexpected error selecting preset: %s", err)
