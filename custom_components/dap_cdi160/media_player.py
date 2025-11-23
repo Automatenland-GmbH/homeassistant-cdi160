@@ -353,6 +353,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                         media_content_type="presets",
                         can_play=False,
                         can_expand=True,
+                        children_media_class=MediaClass.CHANNEL,
                         thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
                     ),
                     BrowseMedia(
@@ -362,6 +363,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                         media_content_type="favorites",
                         can_play=False,
                         can_expand=True,
+                        children_media_class=MediaClass.CHANNEL,
                         thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
                     ),
                 ],
@@ -375,7 +377,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                 children.append(
                     BrowseMedia(
                         title=custom_name,
-                        media_class=MediaClass.MUSIC,
+                        media_class=MediaClass.CHANNEL,
                         media_content_id=f"preset:{custom_name}",
                         media_content_type="music",
                         can_play=True,
@@ -391,6 +393,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                 media_content_type="presets",
                 can_play=False,
                 can_expand=True,
+                children_media_class=MediaClass.CHANNEL,
                 children=children,
             )
 
@@ -402,7 +405,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                 children.append(
                     BrowseMedia(
                         title=custom_name,
-                        media_class=MediaClass.MUSIC,
+                        media_class=MediaClass.CHANNEL,
                         media_content_id=f"favorite:{custom_name}",
                         media_content_type="music",
                         can_play=True,
@@ -418,6 +421,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                 media_content_type="favorites",
                 can_play=False,
                 can_expand=True,
+                children_media_class=MediaClass.CHANNEL,
                 children=children,
             )
 
