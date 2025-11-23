@@ -8,7 +8,7 @@ CONF_NAME = "name"
 
 # Default values
 DEFAULT_NAME = "DAP CDI160 Audio Player"
-DEFAULT_SCAN_INTERVAL = 5  # seconds
+DEFAULT_SCAN_INTERVAL = 30  # seconds
 
 # API endpoints
 ENDPOINT_GET_PLAYING = "/php/getPlaying.php"
