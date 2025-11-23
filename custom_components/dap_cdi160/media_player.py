@@ -82,7 +82,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         # State attributes
         self._state = MediaPlayerState.IDLE
         self._muted = False
-        self._volume_level = None  # Volume level 0-5, None if unknown
+        self._volume_level = 3  # Volume level 0-5, default to middle value
         self._media_title = None
         self._media_artist = None
         self._in_favorite = False
@@ -145,13 +145,14 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         return self._muted
 
     @property
-    def volume_level(self) -> float | None:
+    def volume_level(self) -> float:
         """Volume level of the media player (0..1).
 
         Device reports volume on 0-5 scale, we convert to 0-1 for Home Assistant.
         """
+        # Always return a value to ensure volume buttons are visible
         if self._volume_level is None:
-            return None
+            return 0.6  # Default to 60% (3/5)
         return self._volume_level / VOLUME_MAX
 
     @property
