@@ -7,11 +7,11 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_NAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DEFAULT_NAME, DOMAIN, ENDPOINT_GET_PLAYING
+from .const import DEFAULT_NAME, DOMAIN, ENDPOINT_GET_PLAYING, MAX_FAVORITES, MAX_PRESETS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +49,12 @@ class DapCdi160ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        return DapCdi160OptionsFlowHandler(config_entry)
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -66,4 +72,39 @@ class DapCdi160ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        )
+
+
+class DapCdi160OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for DAP CDI160."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Build schema for preset and favorite names
+        options_schema = {}
+
+        # Add preset name fields
+        for i in range(1, MAX_PRESETS + 1):
+            key = f"preset_{i}_name"
+            default = self.config_entry.options.get(key, f"Preset {i}")
+            options_schema[vol.Optional(key, default=default)] = str
+
+        # Add favorite name fields
+        for i in range(1, MAX_FAVORITES + 1):
+            key = f"favorite_{i}_name"
+            default = self.config_entry.options.get(key, f"Favorite {i}")
+            options_schema[vol.Optional(key, default=default)] = str
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(options_schema),
         )

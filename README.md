@@ -55,6 +55,20 @@ dap_cdi160:
 
 Then configure through the UI as described above.
 
+### Customizing Preset and Favorite Names
+
+You can customize the names of presets and favorites to match your actual stations:
+
+1. Go to **Settings** → **Devices & Services**
+2. Find your **DAP CDI160** integration
+3. Click **Configure** (or the three dots menu → **Configure**)
+4. Enter custom names for your presets and favorites
+   - For example: Change "Preset 1" to "BBC Radio 1"
+   - Or change "Favorite 3" to "Jazz FM"
+5. Click **Submit**
+
+The integration will reload automatically with your custom names. You can change these at any time, and they'll appear in the source selector, automations, and voice assistants.
+
 ## Usage
 
 Once configured, the integration creates a media player entity that you can control through:
@@ -79,6 +93,8 @@ The media player supports the following services:
   - Favorites: `"Favorite 1"`, `"Favorite 2"`, ..., `"Favorite 10"`
 
 ### Example Automation
+
+> **Note**: If you've customized your preset/favorite names, use those custom names in your automations instead of the default "Preset X" or "Favorite X" names.
 
 ```yaml
 automation:
@@ -120,6 +136,25 @@ automation:
           entity_id: media_player.dap_cdi160_audio_player
         data:
           source: "Favorite 1"
+      - service: media_player.media_play
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
+
+  - alias: "Play Jazz FM on weekend mornings (using custom name)"
+    trigger:
+      - platform: time
+        at: "10:00:00"
+    condition:
+      - condition: time
+        weekday:
+          - sat
+          - sun
+    action:
+      - service: media_player.select_source
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
+        data:
+          source: "Jazz FM"  # Custom name configured in options
       - service: media_player.media_play
         target:
           entity_id: media_player.dap_cdi160_audio_player

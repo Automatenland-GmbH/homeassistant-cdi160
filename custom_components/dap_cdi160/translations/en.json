@@ -16,5 +16,13 @@
     "abort": {
       "already_configured": "Device is already configured"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Customize Source Names",
+        "description": "Customize the names of presets and favorites as they appear in Home Assistant. Leave blank to use default names."
+      }
+    }
   }
 }
