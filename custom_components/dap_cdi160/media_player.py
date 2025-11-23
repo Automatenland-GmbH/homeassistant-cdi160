@@ -92,7 +92,6 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         self._attr_supported_features = (
             MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.VOLUME_MUTE
-            | MediaPlayerEntityFeature.VOLUME_SET
             | MediaPlayerEntityFeature.SELECT_SOURCE
             | MediaPlayerEntityFeature.PAUSE
             | MediaPlayerEntityFeature.PLAY
@@ -175,6 +174,16 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         """Return the current input source."""
         return self._current_source
 
+    @property
+    def media_image_url(self) -> str | None:
+        """Return the image URL of current playing media."""
+        # If we're on a preset, return the logo from preset info
+        if self._current_source and self._current_source in self._source_to_id:
+            source_type, source_id = self._source_to_id[self._current_source]
+            if source_type == "preset" and source_id in self._preset_info:
+                return self._preset_info[source_id].get("logo")
+        return None
+
     async def async_update(self) -> None:
         """Fetch new state data for the player."""
         # Fetch current playing status
@@ -251,19 +260,6 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         else:
             # Unmute by sending volume up command
             await self._send_volume_command(VOLUME_UP)
-
-    async def async_set_volume_level(self, volume: float) -> None:
-        """Set volume level (0..1).
-
-        Device uses 0-5 scale, we convert from 0-1 scale.
-        Note: Device may require multiple clicks to change levels.
-        """
-        # Convert 0-1 to 0-5 scale
-        device_volume = round(volume * VOLUME_MAX)
-        device_volume = max(VOLUME_MIN, min(VOLUME_MAX, device_volume))
-
-        # Try sending absolute volume value
-        await self._send_volume_command(device_volume)
 
     async def async_media_play(self) -> None:
         """Send play command (unmute to resume playback)."""
@@ -366,6 +362,9 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                                 name,
                                 logo_url,
                             )
+
+                    # Rebuild source list with API-fetched preset names
+                    self._rebuild_source_list()
                 else:
                     _LOGGER.warning(
                         "Failed to fetch preset info from %s: HTTP %s",
@@ -376,6 +375,31 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             _LOGGER.warning("Error fetching preset info from %s: %s", url, err)
         except Exception as err:
             _LOGGER.warning("Unexpected error fetching preset info: %s", err)
+
+    def _rebuild_source_list(self) -> None:
+        """Rebuild source list using API-fetched preset names."""
+        # Clear existing lists
+        self._source_list = []
+        self._source_to_id = {}
+
+        # Add presets with API-fetched names (or custom names as fallback)
+        for i in range(1, MAX_PRESETS + 1):
+            # Use API-fetched name if available, otherwise use custom name from options
+            if i in self._preset_info and self._preset_info[i].get("name"):
+                preset_name = self._preset_info[i]["name"]
+            else:
+                preset_name = self._config_entry.options.get(f"preset_{i}_name", f"Preset {i}")
+
+            self._source_list.append(preset_name)
+            self._source_to_id[preset_name] = ("preset", i)
+
+        # Add favorites with custom names from options
+        for i in range(1, MAX_FAVORITES + 1):
+            custom_name = self._config_entry.options.get(f"favorite_{i}_name", f"Favorite {i}")
+            self._source_list.append(custom_name)
+            self._source_to_id[custom_name] = ("favorite", i)
+
+        _LOGGER.debug("Rebuilt source list with %d sources", len(self._source_list))
 
     async def async_select_source(self, source: str) -> None:
         """Select input source (preset or favorite)."""
@@ -486,7 +510,11 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             # Show all presets
             children = []
             for i in range(1, MAX_PRESETS + 1):
-                custom_name = self._config_entry.options.get(f"preset_{i}_name", f"Preset {i}")
+                # Use API-fetched name if available, otherwise use custom name from options
+                if i in self._preset_info and self._preset_info[i].get("name"):
+                    preset_name = self._preset_info[i]["name"]
+                else:
+                    preset_name = self._config_entry.options.get(f"preset_{i}_name", f"Preset {i}")
 
                 # Use logo from preset info if available
                 thumbnail = "https://brands.home-assistant.io/_/media_player/icon.png"
@@ -495,9 +523,9 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
 
                 children.append(
                     BrowseMedia(
-                        title=custom_name,
+                        title=preset_name,
                         media_class=MediaClass.CHANNEL,
-                        media_content_id=f"preset:{custom_name}",
+                        media_content_id=f"preset:{preset_name}",
                         media_content_type="music",
                         can_play=True,
                         can_expand=False,
