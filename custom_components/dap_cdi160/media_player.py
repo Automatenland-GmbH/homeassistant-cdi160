@@ -80,6 +80,9 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.VOLUME_MUTE
             | MediaPlayerEntityFeature.SELECT_SOURCE
+            | MediaPlayerEntityFeature.PAUSE
+            | MediaPlayerEntityFeature.PLAY
+            | MediaPlayerEntityFeature.STOP
         )
 
         # Presets as sources
@@ -192,6 +195,27 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         else:
             # Unmute by sending volume up command
             await self._send_volume_command(VOLUME_UP)
+
+    async def async_media_play(self) -> None:
+        """Send play command (unmute to resume playback)."""
+        # Use volume up to unmute/resume playback
+        await self._send_volume_command(VOLUME_UP)
+        self._state = MediaPlayerState.PLAYING
+        self.async_write_ha_state()
+
+    async def async_media_pause(self) -> None:
+        """Send pause command (mute to pause playback)."""
+        # Use volume mute to pause playback
+        await self._send_volume_command(VOLUME_MUTE)
+        self._state = MediaPlayerState.PAUSED
+        self.async_write_ha_state()
+
+    async def async_media_stop(self) -> None:
+        """Send stop command (mute to stop playback)."""
+        # Use volume mute to stop playback
+        await self._send_volume_command(VOLUME_MUTE)
+        self._state = MediaPlayerState.IDLE
+        self.async_write_ha_state()
 
     async def _send_volume_command(self, volume_value: int) -> None:
         """Send volume control command to the device."""

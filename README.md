@@ -5,10 +5,13 @@ This custom integration allows you to control DAP CDI160-BT Audio Player through
 ## Features
 
 - **Media Player Entity**: Full media player control in Home Assistant
+- **Playback Control**: Play, pause, and stop buttons in the UI
 - **Volume Control**: Volume up, volume down, and mute functionality
 - **Source Selection**: Switch between 4 presets (Preset 1-4)
 - **Status Monitoring**: Display current playing track, artist, and play state
 - **UI Configuration**: Easy setup through Home Assistant UI
+
+> **Note**: Due to hardware limitations, play/pause/stop controls are mapped to the device's mute functionality (vl=128 for pause/stop, volume up for play). This provides a seamless UI experience while working within the device's API constraints.
 
 ## Installation
 
@@ -63,6 +66,9 @@ Once configured, the integration creates a media player entity that you can cont
 
 The media player supports the following services:
 
+- `media_player.media_play`: Start/resume playback (unmutes the device)
+- `media_player.media_pause`: Pause playback (mutes the device)
+- `media_player.media_stop`: Stop playback (mutes the device)
 - `media_player.volume_up`: Increase volume
 - `media_player.volume_down`: Decrease volume
 - `media_player.volume_mute`: Mute/unmute audio
@@ -82,6 +88,18 @@ automation:
           entity_id: media_player.dap_cdi160_audio_player
         data:
           source: "Preset 1"
+      - service: media_player.media_play
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
+
+  - alias: "Pause music at 10 PM"
+    trigger:
+      - platform: time
+        at: "22:00:00"
+    action:
+      - service: media_player.media_pause
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
 ```
 
 ### Example Script
@@ -95,6 +113,9 @@ script:
           entity_id: media_player.dap_cdi160_audio_player
         data:
           source: "Preset 2"
+      - service: media_player.media_play
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
       - service: media_player.volume_up
         target:
           entity_id: media_player.dap_cdi160_audio_player
