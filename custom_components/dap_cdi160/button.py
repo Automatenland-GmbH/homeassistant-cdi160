@@ -21,6 +21,10 @@ async def async_setup_entry(
     host = config_entry.data[CONF_HOST]
     name = config_entry.data.get(CONF_NAME, DEFAULT_NAME)
 
+    # Ensure host starts with http:// or https:// (same as media_player)
+    if not host.startswith("http://") and not host.startswith("https://"):
+        host = f"http://{host}"
+
     async_add_entities([RefreshPresetInfoButton(hass, config_entry, host, name)])
 
 
@@ -59,12 +63,35 @@ class RefreshPresetInfoButton(ButtonEntity):
         """Handle the button press - refresh preset info."""
         _LOGGER.info("Refreshing preset info for %s", self._host)
 
-        # Find the media player entity
-        for entity in self.hass.data.get("entity_components", {}).get("media_player", {}).entities:
-            if hasattr(entity, "_host") and entity._host == self._host:
-                _LOGGER.info("Found media player entity, refreshing preset info")
-                await entity.async_refresh_preset_info()
+        # Find the media player entity by config entry
+        from homeassistant.helpers import entity_registry as er
+        from homeassistant.helpers import entity_platform
+
+        entity_reg = er.async_get(self.hass)
+
+        # Find media player entity with matching config entry
+        media_player_entity_id = None
+        for entity in entity_reg.entities.values():
+            if (
+                entity.config_entry_id == self._config_entry.entry_id
+                and entity.domain == "media_player"
+            ):
+                media_player_entity_id = entity.entity_id
+                break
+
+        if not media_player_entity_id:
+            _LOGGER.warning("Could not find media player entity to refresh")
+            return
+
+        _LOGGER.info("Found media player entity %s, refreshing preset info", media_player_entity_id)
+
+        # Get the actual entity object from the component
+        component = self.hass.data.get("entity_components", {}).get("media_player")
+        if component:
+            entity_obj = component.get_entity(media_player_entity_id)
+            if entity_obj and hasattr(entity_obj, "async_refresh_preset_info"):
+                await entity_obj.async_refresh_preset_info()
                 _LOGGER.info("Preset info refreshed successfully")
                 return
 
-        _LOGGER.warning("Could not find media player entity to refresh")
+        _LOGGER.warning("Could not access media player entity object to refresh")
