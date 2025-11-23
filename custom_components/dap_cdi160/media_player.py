@@ -187,6 +187,15 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         else:
             self._state = MediaPlayerState.ON
 
+        # Override state based on mute status
+        # If muted, show as paused (so play button appears)
+        # If unmuted and playing, show as playing (so pause button appears)
+        if self._muted:
+            self._state = MediaPlayerState.PAUSED
+        elif self._state in (MediaPlayerState.PAUSED, MediaPlayerState.ON):
+            # If not muted but was paused/on, change to playing
+            self._state = MediaPlayerState.PLAYING
+
     async def async_volume_up(self) -> None:
         """Volume up the media player."""
         await self._send_volume_command(VOLUME_UP)
@@ -207,22 +216,16 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         """Send play command (unmute to resume playback)."""
         # Use volume up to unmute/resume playback
         await self._send_volume_command(VOLUME_UP)
-        self._state = MediaPlayerState.PLAYING
-        self.async_write_ha_state()
 
     async def async_media_pause(self) -> None:
         """Send pause command (mute to pause playback)."""
         # Use volume mute to pause playback
         await self._send_volume_command(VOLUME_MUTE)
-        self._state = MediaPlayerState.PAUSED
-        self.async_write_ha_state()
 
     async def async_media_stop(self) -> None:
         """Send stop command (mute to stop playback)."""
         # Use volume mute to stop playback
         await self._send_volume_command(VOLUME_MUTE)
-        self._state = MediaPlayerState.IDLE
-        self.async_write_ha_state()
 
     async def _send_volume_command(self, volume_value: int) -> None:
         """Send volume control command to the device."""
