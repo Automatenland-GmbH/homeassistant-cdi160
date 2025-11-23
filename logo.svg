@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#1a1a2e"/>
+
+  <!-- Speaker body -->
+  <rect x="180" y="120" width="152" height="272" rx="16" fill="#16213e" stroke="#3d5a80" stroke-width="4"/>
+
+  <!-- Top speaker (tweeter) -->
+  <circle cx="256" cy="200" r="35" fill="#293241" stroke="#3d5a80" stroke-width="3"/>
+  <circle cx="256" cy="200" r="20" fill="#3d5a80"/>
+  <circle cx="256" cy="200" r="8" fill="#98c1d9"/>
+
+  <!-- Bottom speaker (woofer) -->
+  <circle cx="256" cy="312" r="55" fill="#293241" stroke="#3d5a80" stroke-width="4"/>
+  <circle cx="256" cy="312" r="40" fill="#3d5a80"/>
+  <circle cx="256" cy="312" r="25" fill="#293241" stroke="#98c1d9" stroke-width="2"/>
+  <circle cx="256" cy="312" r="12" fill="#98c1d9"/>
+
+  <!-- Radio waves (left) -->
+  <path d="M 130 256 Q 130 226 145 211" fill="none" stroke="#ee6c4d" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 110 256 Q 110 206 140 176" fill="none" stroke="#ee6c4d" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Radio waves (right) -->
+  <path d="M 382 256 Q 382 226 367 211" fill="none" stroke="#ee6c4d" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 402 256 Q 402 206 372 176" fill="none" stroke="#ee6c4d" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Power indicator -->
+  <circle cx="256" cy="150" r="6" fill="#ee6c4d">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>
