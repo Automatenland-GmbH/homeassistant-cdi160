@@ -20,8 +20,24 @@
   "options": {
     "step": {
       "init": {
-        "title": "Customize Source Names",
-        "description": "Customize the names of presets and favorites as they appear in Home Assistant. Leave blank to use default names."
+        "title": "Customize Preset and Favorite Names",
+        "description": "Give your presets and favorites meaningful names (e.g., 'BBC Radio 1' instead of 'Preset 1'). These names will appear in the source selector, browse media, and automations.",
+        "data": {
+          "preset_1_name": "Preset 1 Name",
+          "preset_2_name": "Preset 2 Name",
+          "preset_3_name": "Preset 3 Name",
+          "preset_4_name": "Preset 4 Name",
+          "favorite_1_name": "Favorite 1 Name",
+          "favorite_2_name": "Favorite 2 Name",
+          "favorite_3_name": "Favorite 3 Name",
+          "favorite_4_name": "Favorite 4 Name",
+          "favorite_5_name": "Favorite 5 Name",
+          "favorite_6_name": "Favorite 6 Name",
+          "favorite_7_name": "Favorite 7 Name",
+          "favorite_8_name": "Favorite 8 Name",
+          "favorite_9_name": "Favorite 9 Name",
+          "favorite_10_name": "Favorite 10 Name"
+        }
       }
     }
   }
