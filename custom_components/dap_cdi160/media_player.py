@@ -19,9 +19,12 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    ENDPOINT_FAVORITE,
     ENDPOINT_GET_PLAYING,
     ENDPOINT_PRESET,
     ENDPOINT_VOLUME,
+    MAX_FAVORITES,
+    MAX_PRESETS,
     VOLUME_DOWN,
     VOLUME_MUTE,
     VOLUME_UP,
@@ -85,8 +88,12 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             | MediaPlayerEntityFeature.STOP
         )
 
-        # Presets as sources
-        self._source_list = ["Preset 1", "Preset 2", "Preset 3", "Preset 4"]
+        # Build source list with both presets and favorites
+        self._source_list = []
+        for i in range(1, MAX_PRESETS + 1):
+            self._source_list.append(f"Preset {i}")
+        for i in range(1, MAX_FAVORITES + 1):
+            self._source_list.append(f"Favorite {i}")
         self._current_source = None
 
     @property
@@ -238,21 +245,33 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             _LOGGER.exception("Unexpected error sending volume command: %s", err)
 
     async def async_select_source(self, source: str) -> None:
-        """Select input source (preset)."""
+        """Select input source (preset or favorite)."""
         try:
-            # Map source name to preset ID (0-3)
-            preset_map = {
-                "Preset 1": 0,
-                "Preset 2": 1,
-                "Preset 3": 2,
-                "Preset 4": 3,
-            }
-
-            if source not in preset_map:
+            # Check if it's a preset
+            if source.startswith("Preset "):
+                await self._select_preset(source)
+            # Check if it's a favorite
+            elif source.startswith("Favorite "):
+                await self._select_favorite(source)
+            else:
                 _LOGGER.error("Invalid source: %s", source)
+
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Error selecting source %s: %s", source, err)
+        except Exception as err:
+            _LOGGER.exception("Unexpected error selecting source: %s", err)
+
+    async def _select_preset(self, source: str) -> None:
+        """Select a preset source."""
+        # Extract preset number from "Preset N"
+        try:
+            preset_num = int(source.split(" ")[1])
+            preset_id = preset_num - 1  # Convert to 0-based index
+
+            if preset_id < 0 or preset_id >= MAX_PRESETS:
+                _LOGGER.error("Invalid preset number: %s", preset_num)
                 return
 
-            preset_id = preset_map[source]
             url = f"{self._host}{ENDPOINT_PRESET}"
             data = {"do": "lip", "pid": preset_id}
 
@@ -261,11 +280,36 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             ) as response:
                 if response.status == 200:
                     self._current_source = source
+                    _LOGGER.info("Selected preset: %s (pid=%s)", source, preset_id)
                 else:
                     _LOGGER.error(
                         "Failed to select preset %s: HTTP %s", source, response.status
                     )
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error selecting preset %s: %s", source, err)
-        except Exception as err:
-            _LOGGER.exception("Unexpected error selecting preset: %s", err)
+        except (ValueError, IndexError) as err:
+            _LOGGER.error("Invalid preset format: %s (%s)", source, err)
+
+    async def _select_favorite(self, source: str) -> None:
+        """Select a favorite source."""
+        # Extract favorite number from "Favorite N"
+        try:
+            favorite_num = int(source.split(" ")[1])
+
+            if favorite_num < 1 or favorite_num > MAX_FAVORITES:
+                _LOGGER.error("Invalid favorite number: %s", favorite_num)
+                return
+
+            url = f"{self._host}{ENDPOINT_FAVORITE}"
+            data = {"do": "lif", "id": favorite_num, "grp": -1}
+
+            async with self._session.post(
+                url, data=data, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 200:
+                    self._current_source = source
+                    _LOGGER.info("Selected favorite: %s (id=%s)", source, favorite_num)
+                else:
+                    _LOGGER.error(
+                        "Failed to select favorite %s: HTTP %s", source, response.status
+                    )
+        except (ValueError, IndexError) as err:
+            _LOGGER.error("Invalid favorite format: %s (%s)", source, err)

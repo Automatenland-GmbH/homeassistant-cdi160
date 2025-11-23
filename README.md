@@ -7,7 +7,9 @@ This custom integration allows you to control DAP CDI160-BT Audio Player through
 - **Media Player Entity**: Full media player control in Home Assistant
 - **Playback Control**: Play, pause, and stop buttons in the UI
 - **Volume Control**: Volume up, volume down, and mute functionality
-- **Source Selection**: Switch between 4 presets (Preset 1-4)
+- **Source Selection**: Switch between 4 presets and 10 favorites
+  - **Presets**: Preset 1-4 (quick access to predefined stations)
+  - **Favorites**: Favorite 1-10 (access to saved favorite stations)
 - **Status Monitoring**: Display current playing track, artist, and play state
 - **UI Configuration**: Easy setup through Home Assistant UI
 
@@ -72,7 +74,9 @@ The media player supports the following services:
 - `media_player.volume_up`: Increase volume
 - `media_player.volume_down`: Decrease volume
 - `media_player.volume_mute`: Mute/unmute audio
-- `media_player.select_source`: Select preset (1-4)
+- `media_player.select_source`: Select preset (1-4) or favorite (1-10)
+  - Presets: `"Preset 1"`, `"Preset 2"`, `"Preset 3"`, `"Preset 4"`
+  - Favorites: `"Favorite 1"`, `"Favorite 2"`, ..., `"Favorite 10"`
 
 ### Example Automation
 
@@ -98,6 +102,25 @@ automation:
         at: "22:00:00"
     action:
       - service: media_player.media_pause
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
+
+  - alias: "Play favorite station on weekend mornings"
+    trigger:
+      - platform: time
+        at: "09:00:00"
+    condition:
+      - condition: time
+        weekday:
+          - sat
+          - sun
+    action:
+      - service: media_player.select_source
+        target:
+          entity_id: media_player.dap_cdi160_audio_player
+        data:
+          source: "Favorite 1"
+      - service: media_player.media_play
         target:
           entity_id: media_player.dap_cdi160_audio_player
 ```
@@ -127,7 +150,8 @@ The integration uses the following HTTP API endpoints:
 
 - **Status**: `GET /php/getPlaying.php` - Get current playing information
 - **Volume**: `POST /php/webChVol.php` - Control volume (vl=-1, vl=1, vl=128)
-- **Preset**: `POST /php/webListenP.php` - Select preset (pid=0-3)
+- **Preset**: `POST /php/webListenP.php` - Select preset (do=lip, pid=0-3)
+- **Favorite**: `POST /php/webListen.php` - Select favorite (do=lif, id=1-10, grp=-1)
 
 ## Troubleshooting
 

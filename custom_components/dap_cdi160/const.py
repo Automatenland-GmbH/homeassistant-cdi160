@@ -14,8 +14,13 @@ DEFAULT_SCAN_INTERVAL = 5  # seconds
 ENDPOINT_GET_PLAYING = "/php/getPlaying.php"
 ENDPOINT_VOLUME = "/php/webChVol.php"
 ENDPOINT_PRESET = "/php/webListenP.php"
+ENDPOINT_FAVORITE = "/php/webListen.php"
 
 # Volume settings
 VOLUME_UP = 1
 VOLUME_DOWN = -1
 VOLUME_MUTE = 128
+
+# Favorite/Preset limits
+MAX_FAVORITES = 10  # Number of favorites to expose (1-10)
+MAX_PRESETS = 4  # Number of presets (1-4)
