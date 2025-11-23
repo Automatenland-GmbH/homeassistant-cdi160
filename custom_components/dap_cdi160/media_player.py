@@ -18,6 +18,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from datetime import timedelta
+
 from .const import (
     DEFAULT_NAME,
     DEFAULT_SCAN_INTERVAL,
@@ -37,6 +39,9 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Polling interval for detecting changes made on the device
+SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
 
 
 async def async_setup_entry(
@@ -84,7 +89,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         self._muted = False
         self._volume_level = None  # Volume level 0-5, None until fetched from device
         self._media_title = None
-        self._media_artist = None
+        self._media_image_url = None  # Currently playing station image
         self._in_favorite = False
         self._preset_info = {}  # Store preset names and logos from API
 
@@ -137,6 +142,11 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         }
 
     @property
+    def should_poll(self) -> bool:
+        """Enable polling to detect changes made on the device."""
+        return True
+
+    @property
     def state(self) -> MediaPlayerState:
         """Return the state of the device."""
         return self._state
@@ -162,11 +172,6 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         return self._media_title
 
     @property
-    def media_artist(self) -> str | None:
-        """Return the artist of current playing media."""
-        return self._media_artist
-
-    @property
     def source_list(self) -> list[str]:
         """Return the list of available input sources."""
         return self._source_list
@@ -179,11 +184,16 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
     @property
     def media_image_url(self) -> str | None:
         """Return the image URL of current playing media."""
-        # If we're on a preset, return the logo from preset info
+        # Prioritize the currently playing image from getPlaying API
+        if self._media_image_url:
+            return self._media_image_url
+
+        # Fallback to preset logo if available
         if self._current_source and self._current_source in self._source_to_id:
             source_type, source_id = self._source_to_id[self._current_source]
             if source_type == "preset" and source_id in self._preset_info:
                 return self._preset_info[source_id].get("logo")
+
         return None
 
     async def async_update(self) -> None:
@@ -216,14 +226,20 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         self._in_favorite = data.get("bInFav", False)
 
         # Parse mPlySta array
-        # Index 0: Title/Station name
-        # Index 1: Artist/Additional info
+        # Index 0: Station name/Title
+        # Index 1: Image URL
         # Index 2: Play state description
         if len(mply_sta) > 0:
             self._media_title = mply_sta[0] if mply_sta[0] else None
 
         if len(mply_sta) > 1:
-            self._media_artist = mply_sta[1] if mply_sta[1] else None
+            # mPlySta[1] contains the image URL for the currently playing station
+            image_url = mply_sta[1] if mply_sta[1] else None
+            # Only use if it looks like a URL
+            if image_url and (image_url.startswith("http://") or image_url.startswith("https://")):
+                self._media_image_url = image_url
+            else:
+                self._media_image_url = None
 
         if len(mply_sta) > 2:
             play_state_str = mply_sta[2].lower()
