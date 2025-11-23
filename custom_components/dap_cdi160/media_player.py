@@ -5,9 +5,12 @@ from typing import Any
 import aiohttp
 
 from homeassistant.components.media_player import (
+    BrowseMedia,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
+    MediaClass,
+    MediaType,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME
@@ -88,6 +91,8 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             | MediaPlayerEntityFeature.PAUSE
             | MediaPlayerEntityFeature.PLAY
             | MediaPlayerEntityFeature.STOP
+            | MediaPlayerEntityFeature.BROWSE_MEDIA
+            | MediaPlayerEntityFeature.PLAY_MEDIA
         )
 
         # Build source list with both presets and favorites
@@ -326,3 +331,104 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                     )
         except Exception as err:
             _LOGGER.error("Error selecting favorite %s: %s", source, err)
+
+    async def async_browse_media(
+        self, media_content_type: str | None = None, media_content_id: str | None = None
+    ) -> BrowseMedia:
+        """Implement the browse_media service."""
+        if media_content_id is None:
+            # Root level - show Presets and Favorites folders
+            return BrowseMedia(
+                title="DAP CDI160 Stations",
+                media_class=MediaClass.DIRECTORY,
+                media_content_id="root",
+                media_content_type="library",
+                can_play=False,
+                can_expand=True,
+                children=[
+                    BrowseMedia(
+                        title="Presets",
+                        media_class=MediaClass.DIRECTORY,
+                        media_content_id="presets",
+                        media_content_type="presets",
+                        can_play=False,
+                        can_expand=True,
+                        thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
+                    ),
+                    BrowseMedia(
+                        title="Favorites",
+                        media_class=MediaClass.DIRECTORY,
+                        media_content_id="favorites",
+                        media_content_type="favorites",
+                        can_play=False,
+                        can_expand=True,
+                        thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
+                    ),
+                ],
+            )
+
+        if media_content_id == "presets":
+            # Show all presets
+            children = []
+            for i in range(1, MAX_PRESETS + 1):
+                custom_name = self._config_entry.options.get(f"preset_{i}_name", f"Preset {i}")
+                children.append(
+                    BrowseMedia(
+                        title=custom_name,
+                        media_class=MediaClass.MUSIC,
+                        media_content_id=f"preset:{custom_name}",
+                        media_content_type="music",
+                        can_play=True,
+                        can_expand=False,
+                        thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
+                    )
+                )
+
+            return BrowseMedia(
+                title="Presets",
+                media_class=MediaClass.DIRECTORY,
+                media_content_id="presets",
+                media_content_type="presets",
+                can_play=False,
+                can_expand=True,
+                children=children,
+            )
+
+        if media_content_id == "favorites":
+            # Show all favorites
+            children = []
+            for i in range(1, MAX_FAVORITES + 1):
+                custom_name = self._config_entry.options.get(f"favorite_{i}_name", f"Favorite {i}")
+                children.append(
+                    BrowseMedia(
+                        title=custom_name,
+                        media_class=MediaClass.MUSIC,
+                        media_content_id=f"favorite:{custom_name}",
+                        media_content_type="music",
+                        can_play=True,
+                        can_expand=False,
+                        thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
+                    )
+                )
+
+            return BrowseMedia(
+                title="Favorites",
+                media_class=MediaClass.DIRECTORY,
+                media_content_id="favorites",
+                media_content_type="favorites",
+                can_play=False,
+                can_expand=True,
+                children=children,
+            )
+
+        # Invalid media_content_id
+        raise ValueError(f"Invalid media_content_id: {media_content_id}")
+
+    async def async_play_media(
+        self, media_type: str, media_id: str, **kwargs: Any
+    ) -> None:
+        """Play media from browse_media."""
+        # Extract the station name from media_id (format: "preset:Station Name" or "favorite:Station Name")
+        if ":" in media_id:
+            _, station_name = media_id.split(":", 1)
+            await self.async_select_source(station_name)

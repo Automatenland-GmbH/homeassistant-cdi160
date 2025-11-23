@@ -10,8 +10,12 @@ This custom integration allows you to control DAP CDI160-BT Audio Player through
 - **Source Selection**: Switch between 4 presets and 10 favorites
   - **Presets**: Preset 1-4 (quick access to predefined stations)
   - **Favorites**: Favorite 1-10 (access to saved favorite stations)
+- **Browse Media**: Visual folder-based navigation for stations
+  - Browse through organized folders (Presets/Favorites)
+  - Click to play any station directly
 - **Status Monitoring**: Display current playing track, artist, and play state
 - **UI Configuration**: Easy setup through Home Assistant UI
+- **Customizable Names**: Rename presets and favorites to match your stations
 
 > **Note**: Due to hardware limitations, play/pause/stop controls are mapped to the device's mute functionality (vl=128 for pause/stop, volume up for play). This provides a seamless UI experience while working within the device's API constraints.
 
@@ -78,6 +82,26 @@ Once configured, the integration creates a media player entity that you can cont
 - **Scripts**: Control the player programmatically
 - **Voice Assistants**: Control via Google Assistant, Alexa, etc.
 
+### Using Browse Media
+
+The integration provides a visual browse media interface for easy station selection:
+
+1. Open the media player card in Home Assistant
+2. Click the **Browse Media** button (folder icon)
+3. You'll see two folders:
+   - **Presets** - Contains your 4 preset stations
+   - **Favorites** - Contains your 10 favorite stations
+4. Click on any folder to expand and see the stations
+5. Click on a station name to play it immediately
+
+**Benefits:**
+- Visual, folder-based organization
+- Quick access to all stations in one view
+- Uses your custom station names if configured
+- Cleaner interface than dropdown source selector
+
+**Tip:** If you've customized your preset/favorite names (e.g., "BBC Radio 1" instead of "Preset 1"), those custom names will appear in the browse media interface!
+
 ### Available Services
 
 The media player supports the following services:
@@ -91,6 +115,8 @@ The media player supports the following services:
 - `media_player.select_source`: Select preset (1-4) or favorite (1-10)
   - Presets: `"Preset 1"`, `"Preset 2"`, `"Preset 3"`, `"Preset 4"`
   - Favorites: `"Favorite 1"`, `"Favorite 2"`, ..., `"Favorite 10"`
+- `media_player.play_media`: Play a station from browse media
+- `media_player.browse_media`: Browse available stations (used internally by UI)
 
 ### Example Automation
 
