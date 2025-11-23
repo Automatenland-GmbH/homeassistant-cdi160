@@ -21,6 +21,7 @@ This custom integration allows you to control DAP CDI160-BT Audio Player through
 - **Status Monitoring**: Display current playing track, artist, and play state
 - **UI Configuration**: Easy setup through Home Assistant UI
 - **Customizable Names**: Rename presets and favorites to match your stations
+- **Refresh Button**: Manual button to reload preset names and logos from device
 
 > **Note**: Due to hardware limitations, play/pause/stop controls are mapped to the device's mute functionality (vl=128 for pause/stop, volume up for play). This provides a seamless UI experience while working within the device's API constraints.
 

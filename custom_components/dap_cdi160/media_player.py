@@ -92,6 +92,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         self._attr_supported_features = (
             MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.VOLUME_MUTE
+            | MediaPlayerEntityFeature.VOLUME_SET
             | MediaPlayerEntityFeature.SELECT_SOURCE
             | MediaPlayerEntityFeature.PAUSE
             | MediaPlayerEntityFeature.PLAY
@@ -117,6 +118,12 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             self._source_to_id[custom_name] = ("favorite", i)
 
         self._current_source = None
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity is added to hass."""
+        await super().async_added_to_hass()
+        # Fetch preset info immediately when entity is added
+        await self._fetch_preset_info()
 
     @property
     def device_info(self):
@@ -191,10 +198,6 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             _LOGGER.exception("Unexpected error updating DAP CDI160: %s", err)
             self._state = MediaPlayerState.OFF
 
-        # Fetch preset info (names and logos) if not already loaded
-        if not self._preset_info:
-            await self._fetch_preset_info()
-
     async def _process_playing_data(self, data: dict[str, Any]) -> None:
         """Process the playing data from the API."""
         mply_sta = data.get("mPlySta", [])
@@ -248,6 +251,19 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         else:
             # Unmute by sending volume up command
             await self._send_volume_command(VOLUME_UP)
+
+    async def async_set_volume_level(self, volume: float) -> None:
+        """Set volume level (0..1).
+
+        Device uses 0-5 scale, we convert from 0-1 scale.
+        Note: Device may require multiple clicks to change levels.
+        """
+        # Convert 0-1 to 0-5 scale
+        device_volume = round(volume * VOLUME_MAX)
+        device_volume = max(VOLUME_MIN, min(VOLUME_MAX, device_volume))
+
+        # Try sending absolute volume value
+        await self._send_volume_command(device_volume)
 
     async def async_media_play(self) -> None:
         """Send play command (unmute to resume playback)."""
@@ -318,6 +334,10 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                     )
         except (ValueError, IndexError) as err:
             _LOGGER.warning("Failed to parse volume response '%s': %s", response_text, err)
+
+    async def async_refresh_preset_info(self) -> None:
+        """Public method to refresh preset information."""
+        await self._fetch_preset_info()
 
     async def _fetch_preset_info(self) -> None:
         """Fetch preset information (names and logos) from device."""
