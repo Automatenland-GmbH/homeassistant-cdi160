@@ -6,13 +6,18 @@ This custom integration allows you to control DAP CDI160-BT Audio Player through
 
 - **Media Player Entity**: Full media player control in Home Assistant
 - **Playback Control**: Play, pause, and stop buttons in the UI
-- **Volume Control**: Volume up, volume down, and mute functionality
+- **Volume Control**:
+  - Volume up, volume down, and mute functionality
+  - Real-time volume level display (0-5 scale)
+  - Volume slider support in UI
 - **Source Selection**: Switch between 4 presets and 10 favorites
   - **Presets**: Preset 1-4 (quick access to predefined stations)
   - **Favorites**: Favorite 1-10 (access to saved favorite stations)
+  - **Station Logos**: Automatically fetched and displayed for presets
 - **Browse Media**: Visual folder-based navigation for stations
   - Browse through organized folders (Presets/Favorites)
   - Click to play any station directly
+  - Station artwork displayed in grid view
 - **Status Monitoring**: Display current playing track, artist, and play state
 - **UI Configuration**: Easy setup through Home Assistant UI
 - **Customizable Names**: Rename presets and favorites to match your stations
@@ -210,9 +215,25 @@ script:
 The integration uses the following HTTP API endpoints:
 
 - **Status**: `GET /php/getPlaying.php` - Get current playing information
-- **Volume**: `POST /php/webChVol.php` - Control volume (vl=-1, vl=1, vl=128)
+- **Preset Info**: `GET /php/getPre.php` - Get preset names and logos
+- **Volume**: `POST /php/webChVol.php` - Control volume (vl=-1, vl=1, vl=128), returns current volume
 - **Preset**: `POST /php/webListenP.php` - Select preset (do=lip, pid=0-3)
 - **Favorite**: `POST /php/webListen.php` - Select favorite (do=lif, id=1-10, grp=-1)
+
+### API Response Details
+
+**Volume Response**:
+```javascript
+curVolume=[5,false];  // [volume_level (0-5), is_muted (boolean)]
+```
+
+**Preset Info Response**:
+```json
+[
+  ["Station Name", "**", 1, [...], preset_num, 0, "logo_url"],
+  ...
+]
+```
 
 ## Troubleshooting
 

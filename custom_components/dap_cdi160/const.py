@@ -12,6 +12,7 @@ DEFAULT_SCAN_INTERVAL = 5  # seconds
 
 # API endpoints
 ENDPOINT_GET_PLAYING = "/php/getPlaying.php"
+ENDPOINT_GET_PRESETS = "/php/getPre.php"
 ENDPOINT_VOLUME = "/php/webChVol.php"
 ENDPOINT_PRESET = "/php/webListenP.php"
 ENDPOINT_FAVORITE = "/php/webListen.php"
@@ -20,6 +21,8 @@ ENDPOINT_FAVORITE = "/php/webListen.php"
 VOLUME_UP = 1
 VOLUME_DOWN = -1
 VOLUME_MUTE = 128
+VOLUME_MIN = 0
+VOLUME_MAX = 5  # Device reports volume on 0-5 scale
 
 # Favorite/Preset limits
 MAX_FAVORITES = 10  # Number of favorites to expose (1-10)

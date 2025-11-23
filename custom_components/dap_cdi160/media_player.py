@@ -24,11 +24,14 @@ from .const import (
     DOMAIN,
     ENDPOINT_FAVORITE,
     ENDPOINT_GET_PLAYING,
+    ENDPOINT_GET_PRESETS,
     ENDPOINT_PRESET,
     ENDPOINT_VOLUME,
     MAX_FAVORITES,
     MAX_PRESETS,
     VOLUME_DOWN,
+    VOLUME_MAX,
+    VOLUME_MIN,
     VOLUME_MUTE,
     VOLUME_UP,
 )
@@ -79,9 +82,11 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         # State attributes
         self._state = MediaPlayerState.IDLE
         self._muted = False
+        self._volume_level = None  # Volume level 0-5, None if unknown
         self._media_title = None
         self._media_artist = None
         self._in_favorite = False
+        self._preset_info = {}  # Store preset names and logos from API
 
         # Supported features
         self._attr_supported_features = (
@@ -137,10 +142,11 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
     def volume_level(self) -> float | None:
         """Volume level of the media player (0..1).
 
-        The device does not report volume level, so we return None.
-        Volume control is available via volume_up/volume_down buttons.
+        Device reports volume on 0-5 scale, we convert to 0-1 for Home Assistant.
         """
-        return None
+        if self._volume_level is None:
+            return None
+        return self._volume_level / VOLUME_MAX
 
     @property
     def media_title(self) -> str | None:
@@ -164,6 +170,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
 
     async def async_update(self) -> None:
         """Fetch new state data for the player."""
+        # Fetch current playing status
         url = f"{self._host}{ENDPOINT_GET_PLAYING}"
         try:
             async with self._session.get(
@@ -183,6 +190,10 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
         except Exception as err:
             _LOGGER.exception("Unexpected error updating DAP CDI160: %s", err)
             self._state = MediaPlayerState.OFF
+
+        # Fetch preset info (names and logos) if not already loaded
+        if not self._preset_info:
+            await self._fetch_preset_info()
 
     async def _process_playing_data(self, data: dict[str, Any]) -> None:
         """Process the playing data from the API."""
@@ -262,7 +273,12 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             async with self._session.post(
                 url, data=data, timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
-                if response.status != 200:
+                if response.status == 200:
+                    # Parse response to get current volume
+                    # Response format: curVolume=[5,false];
+                    response_text = await response.text()
+                    self._parse_volume_response(response_text)
+                else:
                     _LOGGER.error(
                         "Failed to send volume command to %s: HTTP %s",
                         url,
@@ -272,6 +288,74 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             _LOGGER.error("Error sending volume command to %s: %s", url, err)
         except Exception as err:
             _LOGGER.exception("Unexpected error sending volume command: %s", err)
+
+    def _parse_volume_response(self, response_text: str) -> None:
+        """Parse volume response and update state.
+
+        Response format: curVolume=[5,false];
+        where first value is volume (0-5) and second is mute status.
+        """
+        try:
+            # Extract content between brackets
+            if "curVolume=[" in response_text:
+                start = response_text.index("[") + 1
+                end = response_text.index("]")
+                values = response_text[start:end].split(",")
+
+                if len(values) >= 2:
+                    # Parse volume level (0-5)
+                    volume_str = values[0].strip()
+                    self._volume_level = int(volume_str)
+
+                    # Parse mute status
+                    mute_str = values[1].strip().lower()
+                    self._muted = mute_str == "true"
+
+                    _LOGGER.debug(
+                        "Parsed volume: level=%s, muted=%s",
+                        self._volume_level,
+                        self._muted,
+                    )
+        except (ValueError, IndexError) as err:
+            _LOGGER.warning("Failed to parse volume response '%s': %s", response_text, err)
+
+    async def _fetch_preset_info(self) -> None:
+        """Fetch preset information (names and logos) from device."""
+        url = f"{self._host}{ENDPOINT_GET_PRESETS}"
+        try:
+            async with self._session.get(
+                url, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    # Parse preset data
+                    # Format: [[name, "**", 1, [...], preset_num, 0, logo_url], ...]
+                    for preset in data:
+                        if len(preset) >= 7:
+                            name = preset[0]
+                            preset_num = preset[4]  # 1-based preset number
+                            logo_url = preset[6] if preset[6] else None
+
+                            self._preset_info[preset_num] = {
+                                "name": name,
+                                "logo": logo_url,
+                            }
+                            _LOGGER.debug(
+                                "Loaded preset %s: %s (logo: %s)",
+                                preset_num,
+                                name,
+                                logo_url,
+                            )
+                else:
+                    _LOGGER.warning(
+                        "Failed to fetch preset info from %s: HTTP %s",
+                        url,
+                        response.status,
+                    )
+        except aiohttp.ClientError as err:
+            _LOGGER.warning("Error fetching preset info from %s: %s", url, err)
+        except Exception as err:
+            _LOGGER.warning("Unexpected error fetching preset info: %s", err)
 
     async def async_select_source(self, source: str) -> None:
         """Select input source (preset or favorite)."""
@@ -383,6 +467,12 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
             children = []
             for i in range(1, MAX_PRESETS + 1):
                 custom_name = self._config_entry.options.get(f"preset_{i}_name", f"Preset {i}")
+
+                # Use logo from preset info if available
+                thumbnail = "https://brands.home-assistant.io/_/media_player/icon.png"
+                if i in self._preset_info and self._preset_info[i].get("logo"):
+                    thumbnail = self._preset_info[i]["logo"]
+
                 children.append(
                     BrowseMedia(
                         title=custom_name,
@@ -391,7 +481,7 @@ class DapCdi160MediaPlayer(MediaPlayerEntity):
                         media_content_type="music",
                         can_play=True,
                         can_expand=False,
-                        thumbnail="https://brands.home-assistant.io/_/media_player/icon.png",
+                        thumbnail=thumbnail,
                     )
                 )
 
